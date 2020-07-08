@@ -14,7 +14,7 @@ This would **copy** all files with a matching format extension from `/foo/bar` t
 ```bash
 localarchive /foo/bar /my/archive/%Y/%m
 ```
-This would **copy**, for example, a photo from `/foo/bar` that has a EXIF date taken of 24th July 2019 to `/my/archive/2019/07`
+This would **copy**, for example, a photo from `/foo/bar` that has an EXIF date taken of 24th July 2019 to `/my/archive/2019/07`
 
 ```bash
 localarchive -rm /foo/bar /my/archive/%Y
@@ -47,7 +47,7 @@ Move each successfully processed file. Default is `0` where each successfully pr
 
 #### Recursive `-r `
 
-Subdirectories of dest_folder will be processed recursively. Default is `0` where only files within dest_folder will be processed.
+Subdirectories of the source path will be processed recursively. Default is `0` where only files immediately within the source path will be processed.
 
 #### Verbose `-v `
 

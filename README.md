@@ -1,6 +1,6 @@
 # localarchive
 
-A bash script to archive files from one directory to another.
+A bash script to archive files from one directory to another using the creation date of each file.
 
 Ideally suited to media items such a photos, which can be archived according to the date that they were taken. The archive date is sourced from the EXIF information of each file.
 
@@ -21,21 +21,26 @@ localarchive -rm /foo/bar /my/archive/%Y
 ```
 This would **move** all successfully processed files from `/foo/bar` and all its subdirectories  to `/my/archive` grouping them by year.
 
+```bash
+localarchive -f "jpg,jpeg" /foo/bar /my/archive
+```
+This would only process files with a `jpg` or `jpeg` file extension.
+
 ## Options
 
 #### Source path
 
-The directory containing the files to be archived. This is required.
+The directory containing the files to be archived. **This is required**.
 
 #### Destination path
 
-The directory containing the files to be archived. This is required. If it does not already exist, the destination path will be created.
+The directory where the files are to be archived to. **This is required**. If it does not already exist, the destination path will be created.
 
-It may contain date format codes, such as %Y, %m %d, %h, %m, %s. The format codes are applied using the date taken or creation date of each file.
+The path may contain date format codes, such as `%Y`, `%m`, `%d`, `%h`, `%m`, `%s`. The format codes are applied using the CreateDate, DateTimeOriginal, or FileModifyDate of each file.
 
 #### Dry run `-n `
 
-Perform a trial run with no changes actually being made. Verbose output will be shown printed to the terminal. Default is `0`
+Perform a trial run with no changes actually being made. Verbose output will be shown printed to the terminal.
 
 #### Formats `-f`
 
@@ -43,12 +48,12 @@ Only files with the specified file extensions will be processed. Default is `"jp
 
 #### Move `-m `
 
-Move each successfully processed file. Default is `0` where each successfully processed file is copied instead of moved.
+Move each successfully processed file. Without this flag being set, each successfully processed file is copied instead of moved.
 
 #### Recursive `-r `
 
-Subdirectories of the source path will be processed recursively. Default is `0` where only files immediately within the source path will be processed.
+Subdirectories of the source path will be processed recursively. Without this flag being set, only files immediately within the source path will be processed.
 
 #### Verbose `-v `
 
-Increase the amount of information printed to the terminal. Default is `0`
+Increase the amount of information printed to the terminal.

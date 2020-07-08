@@ -1,0 +1,342 @@
+#!/bin/bash
+#
+#------------------------------------------------------------------------------
+# File:         localarchive
+#
+# Description:  Places files into an archive.
+#
+# Usage:        localarchive -rn SOURCE_FOLDER DEST_FOLDER
+#
+# Requires:     ExifTool version 10.96 or later
+#
+# Revisions:    2020-04-23 - (Mad About Brighton) Created
+#
+# References:   https://madaboutbrighton.net
+#
+# Notes:     1) DEST_FOLDER, if it doesn't already exist, will be created.
+#               It may contain date format codes, such as %Y, %m %d, %h, %m, %s.
+#               For example "my/archive/%Y/%m" -> "my/archive/1994/07"
+#               The format codes are applied to the date taken or creation date
+#               of each file.
+#               See https://ss64.com/bash/date.html
+#------------------------------------------------------------------------------
+
+# default options
+is_dry_run=0
+is_recursive=0
+is_verbose=0
+is_move=0
+path_source=""
+path_dest=""
+formats="jpg,jpeg,png,mp4,avi,wmv,m4v,mov"
+
+# counters
+count_files=0
+
+#######################################
+# Sets the commandline arguments as global variables.
+# Globals:
+#   is_dry_run, is_recursive, is_verbose, is_move, 
+#   path_source, path_dest
+# Arguments:
+#   The commandline arguments, a string.
+# Example:
+#   get_options "$@"
+#######################################
+get_options() {
+  while getopts "f:mnrv" opt; do
+      case "${opt}" in
+      f)
+        formats="${OPTARG}"
+        ;;
+      m)
+        is_move=1
+        ;;
+      n)
+        is_dry_run=1
+        ;;
+      r)
+        is_recursive=1
+        ;;
+      v)
+        is_verbose=1
+        ;;
+      esac
+  done
+  
+  shift $(($OPTIND - 1))
+    
+  # Convert relative to absolute paths.
+  # [path_source] is required and MUST exist.
+  path_source=$(readlink -e "${1}")
+  # [path_dest] is required but does not have to exist.
+  path_dest=$(readlink -m "${2}")
+  
+  # Show all the arguments/options when [is_dry_run].
+  if [ "${is_dry_run}" -eq 1 ]; then
+    message "is_dry_run=${is_dry_run}"
+    message "is_recursive=${is_recursive}"
+    message "is_verbose=${is_verbose}"
+    message "is_move=${is_move}"
+    message "formats=${formats}"
+    message "path_source=${path_source}"
+    message "path_dest=${path_dest}"
+  fi
+}
+
+#######################################
+# Outputs a message, even if not [is_verbose].
+# Arguments: 
+#   The message to be displayed, a string.
+# Example:
+#   err "My error message"
+#######################################
+err() {
+  echo "$*" >&2
+}
+
+#######################################
+# Outputs a message, when [is_verbose] or [is_dry_run].
+# Globals:
+#   is_dry_run, is_verbose
+# Arguments: 
+#   The message to be displayed, a string.
+# Example:
+#   message "My message"
+#######################################
+message() {
+  if [ "${is_verbose}" -eq 1 ] || [ "${is_dry_run}" -eq 1 ]; then
+    echo "$*" >&2
+  fi
+}
+
+#######################################
+# Loops through the files within [path_source],
+# processing the ones specified in [formats].
+# Globals:
+#   path_source, formats, is_recursive
+# Returns:
+#   Nothing.
+# Example:
+#   process_directory
+#######################################
+process_directory() {
+  # Each file to be processed.
+  local file
+  # Directory depth for find command.
+  local maxdepth
+  
+  # Only search the parent directory if NOT [is_recursive].
+  if [ "${is_recursive}" -eq 0 ]; then maxdepth="-maxdepth 1"; fi
+    
+  # Turn "mp4,png,jpg" into "mp4\|png\|jpg"
+  local formats_query="${formats//','/'\|'}"
+
+  # Loop through the source files that have a matching file extension and process them.
+  # Done this way so that i could successfully process files that had spaces in their names.
+  $(find "${path_source}" ${maxdepth} -iregex ".*\.\(${formats_query}\)$" -print0 | while read -d $'\0' file; do process_file "${file}"; done)
+
+  # TODO Need to allow for some kind of counter. Subshell makes this difficult.
+  # find "${path_source}" ${maxdepth} -iregex ".*\.\(${formats_query}\)$" -print0 | 
+  # while read -d $'\0' file; do 
+    # message "${blah}"
+    # process_file "${file}" && count_good=$((count_good+1))
+  # done
+
+  # # The way i did it before, but it did not handle files with spaces in their names.
+  # for file in $(find ${path_source} ${maxdepth} -iregex ".*\.\(${formats_query}\)$"); do
+    # # Matching file found, so process it.
+    # $(process_file "${file}")
+  # done
+  
+}
+
+#######################################
+# Processes a photo or video file.
+# Arguments:
+#   File to be processed, a path.
+# Returns:
+#   Nothing.
+# Example:
+#   process_file /path/to/my/photos/20200417_125546.jpg
+#######################################
+process_file() {
+  local -r FILE_PATH="${1}"
+  
+  # Exit if any arguments are missing.
+  if [ -z "${FILE_PATH}" ]; then return 1; fi
+ 
+  if [[ -f "${FILE_PATH}" ]]; then
+        
+    local filename=$(basename -- "${FILE_PATH}")
+    local date_taken=$(exif_date_taken "${FILE_PATH}")
+
+    # Check for a correctly formatted date.
+    if [ $(date -d "${date_taken}" &> /dev/null; echo $?) -eq 0 ]; then
+      # the destination directory
+      #local archive_path=$(date -d "${date_taken}" +"${path_dest}/%Y/%m")
+      local archive_path=$(date -d "${date_taken}" +"${path_dest}")
+            
+      # Create destination directory in case it doesn't already exist.
+      if [ "${is_dry_run}" -eq 0 ]; then $(mkdir -p "$archive_path"); fi
+            
+      # check if the destination directory exists
+      if [ -d "${archive_path}" ] || [ "${is_dry_run}" -eq 1 ]; then
+        # Create path of destination file.
+        local dest_file_path="${archive_path}/${filename}"
+        # Check if a file with the same name already exists.
+        if [ -e "${dest_file_path}" ]; then
+          # Check if both files are identical - 1 = files are NOT identical.
+          if [ $(cmp -s "${FILE_PATH}" "$dest_file_path" &> /dev/null; echo $?) -eq 1 ]; then
+            # The file needs a unique name
+            filename=$(get_unique_filename "${archive_path}" "${filename}")
+            # Check if a filename was generated
+            if [ -z "${filename}" ]; then
+              err "Failed to generate unique filename - ${FILE_PATH}"
+              return 1
+            fi            
+            dest_file_path="${archive_path}/${filename}"
+          else
+            err "File already exists - ${FILE_PATH} in ${archive_path}"
+            # The filename already exists, and the files are identical.
+            return 1
+          fi          
+        fi
+                
+        local result
+
+        if [ "${is_dry_run}" -eq 0 ]; then
+          if [ "${is_move}" -eq 1 ]; then
+            # Move the file with verbose flag.
+            result=$(mv -v "${FILE_PATH}" "${dest_file_path}")
+          else
+            # Copy the file with verbose and archive flags.
+            result=$(cp -va "${FILE_PATH}" "${dest_file_path}")
+          fi
+        else
+          result="${FILE_PATH} -> ${dest_file_path}"
+        fi
+
+        if [ -e "${dest_file_path}" ] || [ "${is_dry_run}" -eq 1 ]; then
+          message "${result}"
+          # Successfully processed file.
+          return 0
+        else
+          err "Could not process - ${FILE_PATH}"
+          err " - $result"
+          return 1
+        fi 
+      fi
+    else
+      err "Date taken is not valid (${date_taken}) - ${FILE_PATH}"
+      return 1
+    fi
+  else
+    err "File does not exist - ${FILE_PATH}"
+    return 1
+  fi
+
+}
+
+#######################################
+# Checks if a file name already exists within a directory, 
+# if it does, a new name is calculated by appending a number to the end. 
+# Arguments:
+#   Directory containing the file, a path.
+#   Name of the file to be checked
+# Returns:
+#   The unique filename, or 1 if no path or filename is specified.
+# Example:
+#   get_unique_filename /source/directory myphoto.jpg = myphoto.jpg
+#   get_unique_filename /source/directory myphoto.jpg = myphoto_1.jpg
+#######################################
+get_unique_filename() {
+  local path="$1"
+  local filename="$2"
+
+  # Exit if any arguments are missing.
+  if [ -z "$path" ]; then return 1; fi
+  if [ -z "$filename" ]; then return 1; fi
+
+  # Check if [filename] is already in use within [path] 
+  if [ -e "${path}/${filename}" ]; then
+    # File exists, so a new unique name will need to be generated.
+    local extension="${filename##*.}"
+    local filename_without_extension=$(basename -- "${filename}" ".${extension}")
+    local suffix=0
+
+    # Keep going until the file does NOT exist
+    while [ -e "${path}/${filename}" ]; do
+      # Increment suffix.
+      (( suffix++ ))
+      # Generate a new file name, appending the suffix, for example, myfilename_1.jpg
+      filename="${filename_without_extension}_${suffix}.${extension}"
+    done  
+  fi
+  
+  # The original filename or the generated one.
+  echo "${filename}"  
+}
+
+#######################################
+# Obtains the date an image was taken from its EXIF information.
+# Uses [exiftool] to return the best date from [CreateDate], [FileModifyDate], [DateTimeOriginal].
+# [CreateDate] will give the best result, but if it is missing, at worst, [FileModifyDate] will be returned.
+# Dependancies:
+#   exiftool
+# Arguments:
+#   File to be processed, a path.
+# Returns:
+#   A date in the format "Y-m-d h:m:s"
+# Example:
+#   exif_date_taken myphoto.jpg
+# References:
+#  https://stackoverflow.com/questions/32062159/how-retrieve-the-creation-date-of-photos-with-a-script
+#######################################
+exif_date_taken() {
+  local -r FILE_PATH="$1"
+
+  # Make sure the file exists.
+  if [ ! -f "${FILE_PATH}" ]; then 
+    echo "File not found - ${FILE_PATH}"
+    return 1
+  fi
+
+  # Obtain the date taken from its EXIF information.
+  local date_bits=( $(exiftool -CreateDate -FileModifyDate -DateTimeOriginal -d "%Y:%m:%d %H:%M:%S" "$FILE_PATH" | awk -F: '{ print $2 ":" $3 ":" $4 ":" $5 ":" $6 }' | sed 's/+[0-9]*//' | sort | grep -v 0000:00:00 | cut -d: -f1-6 | tr ':' ' ' | head -1) )
+  
+  # Check the returned exit code.
+  if [ "${?}" -ne 0 ]; then
+    echo "Date not found - ${FILE_PATH}"
+    return 1
+  fi
+  
+  # 0=YR, 1=MTH, 2=DAY, 3=HR, 4=MIN, 5=SEC
+  echo "${date_bits[0]}-${date_bits[1]}-${date_bits[2]} ${date_bits[3]}:${date_bits[4]}:${date_bits[5]}"
+}
+
+#######################################
+# The script starting point.
+# Arguments:
+#   The commandline arguments, a string.
+# Example:
+#   main "$@"
+#######################################
+main() {
+  # localarchive "/test from" "/test to"
+  # localarchive "." "./test to"
+  
+  # Turn script arguments into variables.
+  get_options "$@"
+    
+  # Exit if any paths are missing.
+  if [ -z "${path_source}" ] || [ -z "${path_dest}" ]; then 
+    err "Must specify a source and destination path"
+    exit 1;
+  fi
+  
+  # Process the source directory
+  $(process_directory)
+}
+
+main "$@"

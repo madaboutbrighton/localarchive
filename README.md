@@ -44,7 +44,7 @@ Perform a trial run with no changes actually being made. Verbose output will be 
 
 #### Formats `-f`
 
-Only files with the specified file extensions will be processed. Default is `"jpg,jpeg,png,mp4,avi,wmv,m4v,mov"`
+Only files with the specified file extensions will be processed. Default is `"jpg,jpeg,png,mp4,avi,wmv,m4v,mov,heic"`
 
 #### Move `-m `
 

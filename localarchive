@@ -28,7 +28,7 @@ is_verbose=0
 is_move=0
 path_source=""
 path_dest=""
-formats="jpg,jpeg,png,mp4,avi,wmv,m4v,mov"
+formats="jpg,jpeg,png,mp4,avi,wmv,m4v,mov,heic"
 
 # counters
 count_files=0

@@ -29,6 +29,7 @@ is_move=0
 path_source=""
 path_dest=""
 formats="jpg,jpeg,png,mp4,avi,wmv,m4v,mov,heic"
+notify=""
 
 # counters
 count_files=0
@@ -37,14 +38,14 @@ count_files=0
 # Sets the commandline arguments as global variables.
 # Globals:
 #   is_dry_run, is_recursive, is_verbose, is_move, 
-#   path_source, path_dest
+#   path_source, path_dest, notify
 # Arguments:
 #   The commandline arguments, a string.
 # Example:
 #   get_options "$@"
 #######################################
 get_options() {
-  while getopts "f:mnrv" opt; do
+  while getopts "f:t:mnrv" opt; do
       case "${opt}" in
       f)
         formats="${OPTARG}"
@@ -57,6 +58,9 @@ get_options() {
         ;;
       r)
         is_recursive=1
+        ;;
+      t)
+        notify="${OPTARG}"
         ;;
       v)
         is_verbose=1
@@ -79,6 +83,7 @@ get_options() {
     message "is_verbose=${is_verbose}"
     message "is_move=${is_move}"
     message "formats=${formats}"
+    message "notify=${notify}"
     message "path_source=${path_source}"
     message "path_dest=${path_dest}"
   fi
@@ -111,6 +116,45 @@ message() {
 }
 
 #######################################
+# Sends a message to a service.
+# Arguments: 
+#   The name of the sender, a string.
+#   The reciever, a string.
+#   The message to be displayed, a string.
+# Example:
+#   notify "myscript" "https://hooks.slack.com/services/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" "The script is complete!"
+#######################################
+notify() {
+  local -r FROM="${1}"
+  local -r TO="${2}"
+  local -r MESSAGE="${3}"
+
+  # Check if the reciever is a Slack Webhook URL.
+  if [[ $TO =~ "hooks.slack.com" ]]; then
+     $(notify_slack "${FROM}" "${TO}" "${MESSAGE}" &> /dev/null)
+  fi
+}
+
+#######################################
+# Sends a message to a Slack.
+# Arguments: 
+#   The name of the sender, a string.
+#   The Webhook URL, a string.
+#   The message to be displayed, a string.
+# References:
+#   https://api.slack.com/messaging/webhooks
+# Example:
+#   notify_slack "myscript" "https://hooks.slack.com/services/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" "The script is complete!"
+#######################################
+notify_slack() {
+  local -r FROM="${1}"
+  local -r WEBHOOK_URL="${2}"
+  local -r MESSAGE="${3}"
+
+  curl -X POST -sH 'Content-type: application/json' --data '{"blocks": [{"type": "section","text": {"type": "mrkdwn","text": ":memo: *'"${FROM}"'*: '"${MESSAGE}"'"}}]}' "${WEBHOOK_URL}"
+}
+
+#######################################
 # Loops through the files within [path_source],
 # processing the ones specified in [formats].
 # Globals:
@@ -132,9 +176,13 @@ process_directory() {
   # Turn "mp4,png,jpg" into "mp4\|png\|jpg"
   local formats_query="${formats//','/'\|'}"
 
+  $(notify "localarchive" "${notify}" "Starting...")
+
   # Loop through the source files that have a matching file extension and process them.
   # Done this way so that i could successfully process files that had spaces in their names.
   $(find "${path_source}" ${maxdepth} -iregex ".*\.\(${formats_query}\)$" -print0 | while read -d $'\0' file; do process_file "${file}"; done)
+
+  $(notify "localarchive" "${notify}" "Complete!!")
 
   # TODO Need to allow for some kind of counter. Subshell makes this difficult.
   # find "${path_source}" ${maxdepth} -iregex ".*\.\(${formats_query}\)$" -print0 | 

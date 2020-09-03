@@ -26,6 +26,11 @@ localarchive -f "jpg,jpeg" /foo/bar /my/archive
 ```
 This would only process files with a `jpg` or `jpeg` file extension.
 
+```bash
+localarchive -fm -t "https://hooks.slack.com/services/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" /foo/bar /my/archive
+```
+This would process the files and post a message on a Slack channel using the specified Webhook URL when the processing starts and stops.
+
 ## Options
 
 #### Source path
@@ -49,6 +54,10 @@ Only files with the specified file extensions will be processed. Default is `"jp
 #### Move `-m `
 
 Move each successfully processed file. Without this flag being set, each successfully processed file is copied instead of moved.
+
+#### Notify `-t `
+
+Service to notify when script begins and completes. Currently supports a Slack Webhook URL. 
 
 #### Recursive `-r `
 

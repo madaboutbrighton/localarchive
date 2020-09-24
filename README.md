@@ -4,6 +4,20 @@ A bash script to archive files from one directory to another using the creation 
 
 Ideally suited to media items such a photos, which can be archived according to the date that they were taken. The archive date is sourced from the EXIF information of each file.
 
+## Contents
+  - [Installation](#installation)
+  - [Usage](#usage)
+  - [Options](#options)
+
+## Installation
+
+Download `localarchive` into `/usr/local/bin` so that it can be run from anywhere:-
+
+```bash
+sudo wget https://raw.githubusercontent.com/madaboutbrighton/localarchive/master/localarchive -O /usr/local/bin/localarchive
+sudo chmod a=rx /usr/local/bin/localarchive
+```
+
 ## Usage
 
 ```bash
@@ -49,7 +63,7 @@ Perform a trial run with no changes actually being made. Verbose output will be 
 
 #### Formats `-f`
 
-Only files with the specified file extensions will be processed. Default is `"jpg,jpeg,png,mp4,avi,wmv,m4v,mov,heic"`
+Only files with the specified file extensions will be processed. Default is `jpg,jpeg,png,mp4,avi,wmv,m4v,mov,heic`.
 
 #### Move `-m `
 
